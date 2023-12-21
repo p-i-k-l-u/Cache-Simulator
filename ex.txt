@@ -1,0 +1,470 @@
+//import java.io.File;
+//import java.io.FileNotFoundException;
+//import java.math.BigInteger;
+//import java.util.ArrayList;
+//import java.util.LinkedList;
+//import java.util.Scanner;
+//
+//public class CacheSimulator {
+//    public static final int BLOCK_SIZE = 64;
+//    public static final int LRU = 0;
+//    public static final int WRITE_THROUGH = 0;
+//    public static final int WRITE_BACK = 1;
+//
+//    static int replacementPolicy;
+//    static int writeBackPolicy;
+//    static double numMisses = 0;
+//    static double numReads = 0;
+//    static double numWrites = 0;
+//    static double totalRequests = 0;
+//
+//    static class Block {
+//        BigInteger tag;
+//        boolean isDirty;
+//        boolean isEmpty;
+//
+//        Block() {
+//            tag = BigInteger.valueOf(0);
+//            isDirty = false;
+//            isEmpty = true;
+//        }
+//    }
+//
+//    static class Cache {
+//        int associativity;
+//        int numSets;
+//        Block[][] blocks;
+//        ArrayList<LinkedList<Integer>> metadata;
+//
+//        Cache(int associativity, int cacheSize) {
+//            this.associativity = associativity;
+//            this.numSets = cacheSize / (BLOCK_SIZE * associativity);
+//            blocks = new Block[numSets][associativity];
+//            metadata = new ArrayList<>();
+//
+//            for (int i = 0; i < numSets; i++) {
+//                for (int j = 0; j < associativity; j++) {
+//                    blocks[i][j] = new Block();
+//                }
+//                metadata.add(new LinkedList<>());
+//            }
+//        }
+//
+////        int getFreeBlock(int setNumber) {
+////            // ... [Unchanged logic from your original code] ...
+////        }
+//int getFreeBlock(int setNumber) {
+//    LinkedList<Integer> set = metadata.get(setNumber);
+//
+//    // Check if there is a free block.
+//    for (int i = 0; i < associativity; i++)
+//        if (blocks[setNumber][i].isEmpty)
+//            return i;
+//
+//    return set.remove();
+//}
+//
+//        int indexOf(BigInteger tag, int setNumber) {
+//            if (setNumber < 0 || setNumber >= numSets) {
+//                System.out.println("Error: setNumber " + setNumber + " out of bounds.");
+//                return -1;
+//            }
+//
+//            for (int i = 0; i < associativity; i++) {
+//                if (blocks[setNumber][i].tag != null && blocks[setNumber][i].tag.equals(tag)) {
+//                    return i;
+//                }
+//            }
+//
+//            return -1;
+//        }
+//
+//        void read(BigInteger tag, int setNumber) {
+//            // ... [Unchanged logic from your original code] ...
+//        }
+//
+//        void write(BigInteger tag, int setNumber) {
+//            if (setNumber < 0 || setNumber >= numSets) {
+//                System.out.println("Error: setNumber " + setNumber + " out of bounds in write method.");
+//                return;
+//            }
+//
+//            // ... [Rest of the write method logic] ...
+//        }
+//
+//        void updateMetadata(int setNumber, int index) {
+//            // ... [Unchanged logic from your original code] ...
+//        }
+//    }
+//
+//    public static void main(String[] args) {
+//        if (args.length != 5) {
+//            System.out.println("Usage: java CacheSimulator <cacheSize> <associativity> <replacementPolicy> <writeBackPolicy> <inputFile>");
+//            return;
+//        }
+//
+//        try {
+//            int cacheSize = Integer.parseInt(args[0]);
+//            int associativity = Integer.parseInt(args[1]);
+//            replacementPolicy = Integer.parseInt(args[2]);
+//            writeBackPolicy = Integer.parseInt(args[3]);
+//            String file = args[4];
+//
+//            Cache cache = new Cache(associativity, cacheSize);
+//            processInputFile(cache, file);
+//
+//            System.out.printf("Miss rate: %.6f\n", numMisses / totalRequests);
+//            System.out.printf("Total writes: %.6f\n", numWrites);
+//            System.out.printf("Total reads: %.6f\n", numReads);
+//        } catch (NumberFormatException e) {
+//            System.out.println("Error: Invalid number format in arguments.");
+//        } catch (FileNotFoundException e) {
+//            System.out.println("Error: File not found - " + e.getMessage());
+//        }
+//    }
+//
+//    static void processInputFile(Cache cache, String file) throws FileNotFoundException {
+//        Scanner scanner = new Scanner(new File(file));
+//
+//        while (scanner.hasNextLine()) {
+//            String line = scanner.nextLine();
+//            char operation = line.charAt(0);
+//            BigInteger address = new BigInteger(line.substring(4), 16);
+//            BigInteger tag = address.divide(BigInteger.valueOf(BLOCK_SIZE));
+//            int setNumber = tag.mod(BigInteger.valueOf(cache.numSets)).intValue();
+//            totalRequests++;
+//
+//            if (setNumber < 0 || setNumber >= cache.numSets) {
+//                System.out.println("Error: Calculated setNumber " + setNumber + " is out of bounds.");
+//                continue;
+//            }
+//
+//            switch (operation) {
+//                case 'R':
+//                    cache.read(tag, setNumber);
+//                    break;
+//                case 'W':
+//                    cache.write(tag, setNumber);
+//                    break;
+//                default:
+//                    // Handle invalid operations
+//                    System.out.println("Error: Invalid operation '" + operation + "' in input file.");
+//                    break;
+//            }
+//        }
+//        scanner.close();
+//    }
+//}
+import java.io.*;
+import java.math.*;
+import java.util.*;
+
+public class CacheSimulator {
+    public static final int BLOCK_SIZE = 64;
+    public static final int LRU = 0;
+    public static final int WRITE_THROUGH = 0;
+    public static final int WRITE_BACK = 1;
+
+    static int replacementPolicy;
+    static int writeBackPolicy;
+
+    static double numMisses = 0;
+    static double numReads = 0;
+    static double numWrites = 0;
+    static double totalRequests = 0;
+
+    static class Block {
+        BigInteger tag;
+        boolean isDirty;
+        boolean isEmpty;
+
+        Block() {
+            tag = BigInteger.valueOf(0);
+            isDirty = false;
+            isEmpty = true;
+        }
+    }
+
+    static class Cache {
+        int associativity;
+        int numSets;
+        int size;
+        Block[][] blocks;
+        ArrayList<LinkedList<Integer>> metadata;
+
+        Cache(int associativity, int cacheSize) {
+            this.associativity = associativity;
+            size = cacheSize;
+            this.numSets = cacheSize / (BLOCK_SIZE * associativity);
+            if(numSets<=0){
+                throw new IllegalArgumentException("Number of sets must be positive");
+            }
+            blocks = new Block[numSets][associativity];
+            metadata = new ArrayList<LinkedList<Integer>>();
+
+            // Initialize blocks.
+            for (int i = 0; i < blocks.length; i++)
+                for (int j = 0; j < blocks[i].length; j++)
+                    blocks[i][j] = new Block();
+
+            // Initialize metadata.
+            for (int i = 0; i < numSets; i++)
+                metadata.add(new LinkedList<Integer>());
+        }
+
+        // Finds a free cache block to be used.
+        int getFreeBlock(int setNumber) {
+            LinkedList<Integer> set = metadata.get(setNumber);
+
+            // Check if there is a free block.
+            for (int i = 0; i < associativity; i++)
+                if (blocks[setNumber][i].isEmpty)
+                    return i;
+
+            return set.remove();
+        }
+
+        // Returns the index for the given tag. Returns -1 if the tag is not in the cache.
+        int indexOf(BigInteger tag, int setNumber) {
+            for (int i = 0; i < associativity; i++)
+                if (blocks[setNumber][i].tag != null && blocks[setNumber][i].tag.equals(tag))
+                    return i;
+
+            return -1;
+        }
+
+        // Reads a tag from the cache in the specified set.
+        void read(BigInteger tag, int setNumber) {
+            int index = indexOf(tag, setNumber);
+
+            // Check for a hit.
+            if (index != -1) {
+                updateMetadata(setNumber, index);
+            }
+
+            // Check for a miss.
+            else {
+                numMisses++;
+                index = getFreeBlock(setNumber);
+                Block block = blocks[setNumber][index];
+
+                block.tag = tag;
+                block.isEmpty = false;
+                numReads++;
+
+                if (writeBackPolicy == WRITE_BACK) {
+                    if (block.isDirty)
+                        numWrites++;
+
+                    block.isDirty = false;
+                }
+
+                updateMetadata(setNumber, index);
+            }
+        }
+
+        // Updates the cache metadata according to the specified replacement policy.
+        void updateMetadata(int setNumber, int index) {
+            LinkedList<Integer> set = metadata.get(setNumber);
+
+            // Check if the queue is empty.
+            if (set.size() == 0) {
+                set.add(index);
+            } else {
+                if (replacementPolicy == LRU) {
+                    int targetIndex = set.indexOf(index);
+
+                    if (targetIndex != -1)
+                        set.remove(targetIndex);
+                }
+
+                set.add(index);
+            }
+        }
+
+        // Writes a tag to the cache in the specified set.
+        void write(BigInteger tag, int setNumber) {
+            Block block;
+            int index = indexOf(tag, setNumber);
+
+            // Check for a hit.
+            if (index != -1) {
+                block = blocks[setNumber][index];
+
+                block.tag = tag;
+                block.isEmpty = false;
+
+                // Check the replacement policy.
+                switch (writeBackPolicy) {
+                    case WRITE_THROUGH:
+                        numWrites++;
+                        break;
+
+                    case WRITE_BACK:
+                        block.isDirty = true;
+                        break;
+                }
+
+                updateMetadata(setNumber, index);
+            }
+
+            // Check for a miss.
+            else {
+                numMisses++;
+                index = getFreeBlock(setNumber);
+                block = blocks[setNumber][index];
+                block.tag = tag;
+                block.isEmpty = false;
+                numReads++;
+
+                // Check the replacement policy.
+                switch (writeBackPolicy) {
+                    case WRITE_THROUGH:
+                        numWrites++;
+                        break;
+
+                    case WRITE_BACK:
+                        if (block.isDirty)
+                            numWrites++;
+                        blocks[setNumber][index].isDirty = true;
+                        break;
+                }
+
+                updateMetadata(setNumber, index);
+            }
+        }
+    }
+
+//    public static void main(String[] args) throws FileNotFoundException {
+//        // Parse command line arguments.
+//        if (args.length != 5) {
+//            System.out.println("Usage: java CacheSimulator <cacheSize> <associativity> <replacementPolicy> <writeBackPolicy> <file>");
+//            System.exit(1);
+//        }
+//        try{
+//
+//
+//        int cacheSize = Integer.parseInt(args[0]);
+//        int associativity = Integer.parseInt(args[1]);
+//        replacementPolicy = Integer.parseInt(args[2]);
+//        writeBackPolicy = Integer.parseInt(args[3]);
+//        String file = args[4];
+//
+//        if(cacheSize<BLOCK_SIZE || associativity<=0){
+//            System.out.println("Error: cacheSize must be at least"+ BLOCK_SIZE+" and associativity must be positive.");
+//            return;
+//        }
+//
+//        Cache cache = new Cache(associativity, cacheSize);
+//
+//
+//        Scanner scanner = new Scanner(new File(file));
+//
+//        BigInteger address;
+//        BigInteger tag;
+//        char operation;
+//        int setNumber;
+//        String line;
+//
+//        while (scanner.hasNextLine()) {
+//            // Process each line.
+//            line = scanner.nextLine();
+//            operation = line.charAt(0);
+//            address = new BigInteger(line.substring(4), 16);
+//
+//            // Calculate new values.
+//            tag = address.divide(BigInteger.valueOf(BLOCK_SIZE)); // tag = address / BLOCK_SIZE
+//            setNumber = (tag.mod(BigInteger.valueOf(cache.numSets))).intValue(); // setNumber = tag % numSet
+//            totalRequests++;
+//
+//            // Check the operation.
+//            switch (operation) {
+//                case 'R':
+//                    cache.read(tag, setNumber);
+//                    break;
+//
+//                case 'W':
+//                    cache.write(tag, setNumber);
+//                    break;
+//
+//                default:
+//                    System.out.println("Error! Invalid operation.");
+//            }
+//        }
+//
+//        // Print the results.
+//        System.out.printf("%.6f\n", numMisses / totalRequests);
+//        System.out.printf("%.6f\n", numWrites);
+//        System.out.printf("%.6f\n", numReads);
+//
+//        // Close the scanner.
+//        scanner.close();
+//    }
+//}
+public static void main(String[] args) {
+        if (args.length != 5) {
+            System.out.println("Usage: java CacheSimulator <cacheSize> <associativity> <replacementPolicy> <writeBackPolicy> <inputFile>");
+            return;
+        }
+
+        try {
+            int cacheSize = Integer.parseInt(args[0]);
+            int associativity = Integer.parseInt(args[1]);
+            if (cacheSize < BLOCK_SIZE * associativity) {
+                System.out.println("Error: cacheSize must be at least " + (BLOCK_SIZE * associativity) + " (BLOCK_SIZE * associativity).");
+                return;
+            }
+
+            // Check if associativity is positive
+            if (associativity <= 0) {
+                System.out.println("Error: associativity must be positive.");
+                return;
+            }
+            replacementPolicy = Integer.parseInt(args[2]);
+            writeBackPolicy = Integer.parseInt(args[3]);
+            String file = args[4];
+
+            Cache cache = new Cache(associativity, cacheSize);
+            processInputFile(cache, file);
+
+            System.out.printf("Miss rate: %.6f\n", numMisses / totalRequests);
+            System.out.printf("Total writes: %.6f\n", numWrites);
+            System.out.printf("Total reads: %.6f\n", numReads);
+        } catch (NumberFormatException e) {
+            System.out.println("Error: Invalid number format in arguments.");
+        } catch (FileNotFoundException e) {
+            System.out.println("Error: File not found - " + e.getMessage());
+        }
+    }
+    static void processInputFile(Cache cache, String file) throws FileNotFoundException {
+        Scanner scanner = new Scanner(new File(file));
+
+        while (scanner.hasNextLine()) {
+            String line = scanner.nextLine();
+            char operation = line.charAt(0);
+            BigInteger address = new BigInteger(line.substring(4), 16);
+            BigInteger tag = address.divide(BigInteger.valueOf(BLOCK_SIZE));
+            int setNumber = tag.mod(BigInteger.valueOf(cache.numSets)).intValue();
+            totalRequests++;
+
+            if (setNumber < 0 || setNumber >= cache.numSets) {
+                System.out.println("Error: Calculated setNumber " + setNumber + " is out of bounds.");
+                continue;
+            }
+
+            switch (operation) {
+                case 'R':
+                    cache.read(tag, setNumber);
+                    break;
+                case 'W':
+                    cache.write(tag, setNumber);
+                    break;
+                default:
+                    // Handle invalid operations
+                    System.out.println("Error: Invalid operation '" + operation + "' in input file.");
+                    break;
+            }
+        }
+        scanner.close();
+    }
+}
